@@ -1,0 +1,91 @@
+{
+  "version": "1.0.0",
+  "_note": "Every parameter that changes a computed figure. Infrastructure (database, API keys, rate limits, log level) is not here - it belongs in the environment, because it cannot change an answer. A change to this file changes the digest, and the digest is stamped into every result's calculation_basis, so a stored verdict records the parameterisation that produced it. Environment variables still override any value here; GET /framework reports which ones did.",
+
+  "swot": {
+    "_note": "A metric becomes a factor only once it clears a relative band around its benchmark, then lands in a 1-5 impact bucket by how far past the band it sits. Inside the band it produces nothing, which is why four empty quadrants is a valid output.",
+    "neutral_band_pct": 5.0,
+    "score_2_pct": 10.0,
+    "score_3_pct": 25.0,
+    "score_4_pct": 50.0,
+    "score_5_pct": 100.0,
+    "min_peers_for_benchmark": 3,
+    "weakness_penalty": 0.5,
+    "neutral_impact": 3.0
+  },
+
+  "market_structure": {
+    "_note": "HHI bands are the US DOJ/FTC 2023 Merger Guidelines, not invented. An unnamed residual share is treated as an atomistic fringe, which biases HHI down - documented, and the reason every sector on a filer population comes back UNCONCENTRATED.",
+    "hhi_unconcentrated_max": 1000.0,
+    "hhi_highly_concentrated_min": 1800.0
+  },
+
+  "matrix": {
+    "_note": "Attractiveness is a weighted sum of four 1-5 axes; weights must sum to 1.0. Thresholds at 2.5 and 3.5 are the documented GE-McKinsey cut points. Borderline flags a point within margin of a boundary, because a verdict that close is not a verdict.",
+    "w_growth": 0.3,
+    "w_size": 0.2,
+    "w_profitability": 0.3,
+    "w_intensity": 0.2,
+    "quadrant_high_threshold": 3.5,
+    "quadrant_low_threshold": 2.5,
+    "quadrant_borderline_margin": 0.15
+  },
+
+  "pricing": {
+    "_note": "A cost-plus anchor blended with the competitor benchmark, then adjusted for the shared-feature quality gap and floored at cost. Blend weights must sum to 1.0. The adjustment is capped so a feature-score gap cannot run the price away from the market.",
+    "default_margin_basis": "MARGIN",
+    "w_cost_plus": 0.5,
+    "w_competitor": 0.5,
+    "value_coefficient": 0.1,
+    "value_adjustment_cap": 0.3,
+    "range_spread": 0.1,
+    "dispersion_warning_cv": 0.35
+  },
+
+  "porters": {
+    "_note": "Buyer power and substitutes have no proxy in this data, so the composite reports how many of the five forces were actually scored and refuses below min_input_coverage rather than averaging over absent ones.",
+    "composite_equal_weights": true,
+    "min_input_coverage": 0.5,
+    "attractive_below": 2.5,
+    "unattractive_above": 3.5
+  },
+
+  "sensitivity": {
+    "_note": "The exact minimum change in any single input that flips the quadrant, solved analytically because attractiveness is linear in its axes. FRAGILE below fragile_threshold; knife_edge is the distance at which the verdict should not be relied on at all.",
+    "axis_span": 4.0,
+    "fragile_threshold": 0.5,
+    "knife_edge_threshold": 0.15
+  },
+
+  "uncertainty": {
+    "_note": "Analyst-supplied {low, mode, high} estimates, not distributions estimated from data. Seeded, so a rerun reproduces exactly. Entropy of the quadrant distribution is the stability measure; its maximum is log2(3) because there are three quadrants.",
+    "draws": 10000,
+    "seed": 20260921,
+    "distribution": "PERT",
+    "pert_lambda": 4.0,
+    "credible_interval_pct": 90.0,
+    "decisive_below": 0.25,
+    "contested_at_or_above": 0.85
+  },
+
+  "portfolio": {
+    "_note": "PROJECT-DEFINED ALLOCATION RULE, not part of the GE-McKinsey framework. Harvest units contribute this share of revenue to the pot; floors are satisfied first or the request fails outright.",
+    "harvest_contribution_rate": 0.1
+  },
+
+  "validation": {
+    "_note": "Permutation null for the backtest. The seed is the one the published results in docs/validation_results.md were generated with - changing it invalidates the comparison to those numbers.",
+    "permutations": 2000,
+    "random_seed": 20260908
+  },
+
+  "benchmarks": {
+    "_note": "A sector median is published only at this sample size; below it the sector is withheld rather than published thin. This is a methodology choice, which is why it lives here and not with the EDGAR transport settings.",
+    "min_sector_n": 20
+  },
+
+  "trend": {
+    "_note": "Movement smaller than this on a 1-5 axis is reported as stable rather than as a trend, because two to five filing periods cannot support a slope.",
+    "material_delta": 0.25
+  }
+}

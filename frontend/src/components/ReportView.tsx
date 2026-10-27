@@ -1,0 +1,91 @@
+import { useState } from "react";
+
+import type { StrategyReport } from "../api/types";
+
+/** The pre-LLM context is deliberately one click away, not hidden. */
+export default function ReportView({ report }: { report: StrategyReport }) {
+  const [showContext, setShowContext] = useState(false);
+  const narrative = report.ai_narrative;
+  const isFallback = report.narrative_source === "template_fallback";
+
+  if (!narrative) {
+    return <p className="text-sm text-muted">No narrative has been generated yet.</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span
+          className={`chip ${
+            isFallback ? "border-muted text-muted" : "border-primary/40 text-primary"
+          }`}
+        >
+          {isFallback ? "template fallback" : "LLM narrated"}
+        </span>
+        {narrative.dropped_citations ? (
+          <span className="chip chip-negative">
+            {narrative.dropped_citations} unsupported citation(s) dropped
+          </span>
+        ) : null}
+      </div>
+
+      {isFallback && narrative.fallback_reason && (
+        <p className="text-xs leading-relaxed text-muted">
+          Generated without a model call ({narrative.fallback_reason}). Every number below is
+          the same as it would be with one — only the prose is templated.
+        </p>
+      )}
+
+      <section className="panel p-5">
+        <h4 className="label">Executive summary</h4>
+        <p className="text-sm leading-relaxed text-foreground">{narrative.executive_summary}</p>
+      </section>
+
+      <section className="panel p-5">
+        <h4 className="label">Strategic position</h4>
+        <p className="text-sm leading-relaxed text-foreground">{narrative.strategic_position}</p>
+      </section>
+
+      {narrative.key_factors && narrative.key_factors.length > 0 && (
+        <section className="panel p-5">
+          <h4 className="label">Key factors</h4>
+          <ul className="space-y-2.5">
+            {narrative.key_factors.map((item, index) => (
+              <li key={index} className="border-l-2 border-primary/40 pl-3">
+                <span className="text-sm font-medium text-foreground">{item.factor}</span>
+                <p className="text-xs leading-relaxed text-muted">{item.implication}</p>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-xs text-muted">
+            Every factor named here was matched against the SWOT grid in the structured
+            context. Anything the model invented was discarded before this rendered.
+          </p>
+        </section>
+      )}
+
+      {narrative.pricing_rationale && (
+        <section className="panel p-5">
+          <h4 className="label">Pricing rationale</h4>
+          <p className="text-sm leading-relaxed text-foreground">{narrative.pricing_rationale}</p>
+        </section>
+      )}
+
+      <section className="panel border-primary/30 p-5">
+        <h4 className="label">Recommendation</h4>
+        <p className="text-sm leading-relaxed text-foreground">{narrative.recommendation}</p>
+      </section>
+
+      <div>
+        <button className="btn-ghost" onClick={() => setShowContext((open) => !open)}>
+          {showContext ? "Hide" : "Show"} structured context (pre-LLM)
+        </button>
+        {showContext && (
+          <pre className="panel mt-2 max-h-96 overflow-auto p-4 num text-2xs leading-relaxed text-muted">
+            {JSON.stringify(report.structured_context, null, 2)}
+          </pre>
+        )}
+      </div>
+    </div>
+  );
+}

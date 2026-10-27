@@ -1,0 +1,62 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: strategy
+      POSTGRES_PASSWORD: strategy
+      POSTGRES_DB: strategysphere
+    ports:
+      - "5432:5432"
+    volumes:
+      - strategy_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # The backend creates its schema on startup, so it must not start until
+      # Postgres is actually accepting connections - not merely "container up".
+      test: ["CMD-SHELL", "pg_isready -U strategy -d strategysphere"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg2://strategy:strategy@db:5432/strategysphere
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      CORS_ORIGINS: http://localhost:5173,http://localhost:3000
+      # V3 ships a real table: sector medians built from SEC XBRL filings,
+      # committed at data/benchmarks/ and mounted read-only below. Point this
+      # at your own if you have one; set it empty to fall back to V1's
+      # illustrative placeholder bands.
+      INDUSTRY_BENCHMARKS_PATH: ${INDUSTRY_BENCHMARKS_PATH:-data/benchmarks/edgar_CY2024.json}
+      # Only needed to REBUILD the table. The SEC requires a declared
+      # User-Agent with contact details; there is no default and the client
+      # refuses to construct without one.
+      EDGAR_USER_AGENT: ${EDGAR_USER_AGENT:-}
+      # V3.1. JSON logs by default so they can be shipped; the request id on
+      # each line ties them to the X-Request-ID the API returns.
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      JOB_WORKERS: ${JOB_WORKERS:-2}
+    ports:
+      - "8000:8000"
+    volumes:
+      # Read-write now: a benchmark rebuild job writes a new table here. The
+      # build writes to a temporary name and renames, so a crash cannot leave
+      # the live table truncated.
+      - ./data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+volumes:
+  strategy_pgdata:

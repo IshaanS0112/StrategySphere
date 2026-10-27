@@ -1,0 +1,276 @@
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+
+import { api } from "../api/client";
+import type { ActiveFramework, BenchmarkProvenance, Company, Methodology } from "../api/types";
+import { CASE_STUDIES } from "../data/caseStudies";
+
+/**
+ * The landing screen answers two questions before anything else: what is loaded, and
+ * where do the benchmarks come from.
+ */
+
+function ProvenanceStrip({ provenance }: { provenance: BenchmarkProvenance | null }) {
+  if (!provenance) return null;
+  const detail = provenance.detail;
+  const real = provenance.is_edgar_sourced;
+
+  return (
+    <section className="panel overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border/70 px-5 py-3">
+        <div className="flex items-center gap-2.5">
+          <span className={`chip ${real ? "chip-positive" : "chip-caution"}`}>
+            {real ? "Sourced" : "Placeholder"}
+          </span>
+          <span className="text-sm font-medium text-foreground">
+            {real ? "Benchmarks from SEC XBRL filings" : "Benchmarks are illustrative bands"}
+          </span>
+        </div>
+        <code className="text-2xs text-muted">GET /benchmarks/provenance</code>
+      </div>
+
+      {real && detail ? (
+        <dl className="grid grid-cols-2 divide-x divide-border/50 sm:grid-cols-4">
+          {[
+            ["Period", String(detail.period ?? "—")],
+            ["Filers considered", Number(detail.companies_considered ?? 0).toLocaleString()],
+            ["Sectors published", String(provenance.sector_count)],
+            ["Minimum sample", `n ≥ ${detail.min_sector_n ?? "?"}`],
+          ].map(([label, value]) => (
+            <div key={label} className="px-5 py-3">
+              <dt className="label mb-1">{label}</dt>
+              <dd className="num text-sm font-semibold text-foreground">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <p className="px-5 py-3 text-xs leading-relaxed text-muted">
+          {provenance.provenance}
+        </p>
+      )}
+    </section>
+  );
+}
+
+export default function Dashboard() {
+  const navigate = useNavigate();
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [methodology, setMethodology] = useState<Methodology | null>(null);
+  const [framework, setFramework] = useState<ActiveFramework | null>(null);
+  const [provenance, setProvenance] = useState<BenchmarkProvenance | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [seeding, setSeeding] = useState<string | null>(null);
+
+  async function refresh() {
+    try {
+      setCompanies((await api.listCompanies({ limit: 100 })).items);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  useEffect(() => {
+    void refresh();
+    api.methodology().then(setMethodology).catch(() => undefined);
+    api.framework().then(setFramework).catch(() => undefined);
+    api.benchmarkProvenance().then(setProvenance).catch(() => undefined);
+  }, []);
+
+  async function loadCaseStudy(key: string) {
+    const study = CASE_STUDIES.find((c) => c.key === key);
+    if (!study) return;
+    setSeeding(key);
+    setError(null);
+    try {
+      const company = await api.createCompany(study.company);
+      for (const competitor of study.competitors) {
+        await api.addCompetitor(company.id, competitor);
+      }
+      navigate(`/companies/${company.id}`);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSeeding(null);
+    }
+  }
+
+  async function remove(id: string) {
+    try {
+      await api.deleteCompany(id);
+      await refresh();
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
+  return (
+    <div className="animate-fade-up space-y-7">
+      <div>
+        {/* Serif headline with one italic word: the Paper signature. */}
+        <h1 className="display text-5xl text-foreground">
+          Every figure here is <em>computed</em>, not asserted
+        </h1>
+        <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted">
+          A SWOT grid scored against SEC-filing sector medians, a GE-McKinsey placement
+          with its uncertainty, and a portfolio allocation you can audit line by line.
+          The model narrates; it does not decide.
+        </p>
+      </div>
+
+      <ProvenanceStrip provenance={provenance} />
+
+      {error && (
+        <p className="panel border-danger/40 bg-danger/5 p-3 text-xs text-danger">
+          {error}
+        </p>
+      )}
+
+      <section>
+        <div className="mb-3 flex items-baseline justify-between gap-4">
+          <h2 className="section-title">Load an illustrative case</h2>
+          <p className="text-2xs text-muted">composites, not real companies</p>
+        </div>
+        <div className="grid gap-3 md:grid-cols-3">
+          {CASE_STUDIES.map((study) => (
+            <button
+              key={study.key}
+              onClick={() => void loadCaseStudy(study.key)}
+              disabled={seeding !== null}
+              className="panel card-interactive group p-4 text-left disabled:opacity-40"
+            >
+              <span className="flex items-start justify-between gap-2">
+                <span className="text-sm font-semibold text-foreground">{study.label}</span>
+                <span
+                  aria-hidden="true"
+                  className="text-subtle transition-colors duration-200 group-hover:text-primary"
+                >
+                  →
+                </span>
+              </span>
+              <span className="mt-1.5 block text-xs leading-relaxed text-muted">
+                {study.summary}
+              </span>
+              {seeding === study.key && (
+                <span className="mt-2 block text-2xs font-semibold uppercase tracking-label text-primary">
+                  Loading…
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <div className="mb-3 flex items-center justify-between gap-4">
+          <h2 className="section-title">
+            Companies
+            <span className="num ml-2 text-xs font-normal text-muted">
+              {companies.length}
+            </span>
+          </h2>
+          <div className="flex gap-2">
+            {companies.length >= 2 && (
+              <Link to="/portfolios" className="btn-ghost">
+                Build a portfolio
+              </Link>
+            )}
+            <Link to="/new" className="btn-primary">
+              New company
+            </Link>
+          </div>
+        </div>
+
+        {companies.length === 0 ? (
+          <div className="panel p-10 text-center">
+            <p className="text-sm text-foreground">Nothing analysed yet.</p>
+            <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-muted">
+              Load one of the cases above to exercise the whole pipeline in a click, or
+              enter a company from a filing by hand.
+            </p>
+          </div>
+        ) : (
+          <ul className="panel divide-y divide-border/60 overflow-hidden">
+            {companies.map((company) => (
+              <li
+                key={company.id}
+                className="group flex items-center gap-4 px-4 py-3 transition-colors duration-150 hover:bg-surface-2/70"
+              >
+                <Link to={`/companies/${company.id}`} className="min-w-0 flex-1 rounded-md">
+                  <span className="flex items-center gap-2">
+                    <span className="truncate text-sm font-medium text-foreground transition-colors group-hover:text-primary">
+                      {company.name}
+                    </span>
+                    {company.industry && (
+                      <span className="chip chip-neutral shrink-0">{company.industry}</span>
+                    )}
+                    {company.period_label && (
+                      <span className="num shrink-0 text-2xs text-muted">
+                        {company.period_label}
+                      </span>
+                    )}
+                  </span>
+                  <span className="mt-0.5 block truncate text-xs text-muted">
+                    {company.data_source}
+                  </span>
+                </Link>
+                <button
+                  onClick={() => void remove(company.id)}
+                  className="btn-danger shrink-0 opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+                  aria-label={`Delete ${company.name}`}
+                >
+                  Delete
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {methodology && (
+        <details className="panel group px-5 py-4">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
+            <span className="section-title">Methodology in force</span>
+            <span className="text-2xs text-muted transition-transform duration-200 group-open:rotate-90">
+              ▸
+            </span>
+          </summary>
+          {framework ? (
+            <dl className="mt-4 grid gap-x-6 gap-y-2 border-b border-border pb-4 sm:grid-cols-3">
+              {[
+                ["Parameter set", `v${framework.version}`],
+                ["Digest", framework.digest],
+                [
+                  "From",
+                  framework.env_overrides.length
+                    ? `${framework.source} · ${framework.env_overrides.length} env override(s)`
+                    : framework.source,
+                ],
+              ].map(([key, value]) => (
+                <div key={key}>
+                  <dt className="label">{key}</dt>
+                  <dd className="num text-xs text-foreground">{value}</dd>
+                </div>
+              ))}
+              <p className="prose-muted sm:col-span-3">
+                Every stored result carries this digest, so a verdict records the thresholds and
+                weights that produced it. <code className="text-2xs">GET /framework</code>
+              </p>
+            </dl>
+          ) : null}
+
+          <ul className="mt-4 grid gap-1.5 sm:grid-cols-2">
+            {methodology.frameworks.map((framework) => (
+              <li key={framework} className="flex gap-2 text-xs text-muted">
+                <span className="text-primary/60">—</span>
+                {framework}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-4 border-t border-border/60 pt-3 text-xs leading-relaxed text-muted">
+            {methodology.llm_role}
+          </p>
+        </details>
+      )}
+    </div>
+  );
+}

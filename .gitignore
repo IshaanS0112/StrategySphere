@@ -1,0 +1,30 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.pytest_cache/
+.ruff_cache/
+node_modules/
+dist/
+.DS_Store
+*.db
+*.sqlite3
+ci.db
+
+# V3: EDGAR response cache and generated benchmark tables.
+# Cached SEC responses are reproducible from the API and would add tens of MB.
+# Cached SEC responses are reproducible from the API and would add tens of MB.
+data/edgar_cache/
+# Built tables are small, reproducible and useful, so the shipped one IS
+# committed; anything else you build locally is not.
+data/benchmarks/*.json
+!data/benchmarks/edgar_CY2024.json
+
+# tsc --build leaves this behind; it is a local cache, not source.
+tsconfig.tsbuildinfo
+
+# A job started with a relative EDGAR_CACHE_DIR or --out resolves against the
+# process working directory, which for uvicorn is backend/. Output written
+# there is an artifact of where the server was started, not source.
+backend/data/

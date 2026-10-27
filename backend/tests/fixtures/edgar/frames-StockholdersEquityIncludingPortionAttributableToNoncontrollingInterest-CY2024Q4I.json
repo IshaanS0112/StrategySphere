@@ -1,0 +1,10 @@
+{
+ "taxonomy": "us-gaap",
+ "tag": "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+ "ccp": "CY2024Q4II",
+ "uom": "USD",
+ "label": "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+ "description": "Fixture frame for StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+ "pts": 0,
+ "data": []
+}

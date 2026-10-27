@@ -1,0 +1,132 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.10 is the floor: the SQLAlchemy models use PEP 604 unions in
+        # runtime-evaluated annotations. Testing both ends catches a
+        # regression that would only appear on one of them.
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run tests
+        # No services block. The models declare JSONB and UUID as dialect
+        # variants, so the API tests exercise the real app against SQLite and
+        # CI needs no database container.
+        run: python -m pytest -q
+
+      - name: EDGAR fixtures are regenerable and current
+        # The EDGAR tests run the real client against recorded-shape fixtures.
+        # If the generator and the committed files drift apart, the fixtures
+        # stop being reproducible and nobody notices until a test fails for an
+        # unrelated reason. Regenerating and diffing is the cheap guard.
+        #
+        # This matters more than it looks: the fixtures were once written from
+        # the same wrong assumption as the code (balance-sheet concepts under a
+        # duration period key), so they agreed with the code and both disagreed
+        # with the live API. See docs/architecture.md, bugs found in V3.
+        run: |
+          python tests/fixtures/edgar/make_fixtures.py
+          git diff --exit-code -- tests/fixtures/edgar
+
+      - name: OpenAPI schema is generatable
+        # A response_model that no longer matches its handler fails here rather
+        # than at the first request from a generated client.
+        env:
+          DATABASE_URL: sqlite:///./openapi.db
+        run: |
+          python -c "
+          from app.main import app
+          import json
+          schema = app.openapi()
+          print(len(schema['paths']), 'paths documented')
+          assert '/jobs/{job_id}' in schema['paths']
+          assert '/metrics' not in schema['paths'], 'metrics is include_in_schema=False'
+          "
+
+      - name: No test opens a socket
+        # The whole EDGAR test suite injects its transport. A test that reaches
+        # data.sec.gov from CI would be both flaky and rude, so the absence of
+        # a real network call is asserted rather than assumed.
+        run: |
+          ! grep -rnE "urlopen\(|requests\.get\(|httpx\.get\(" tests/ \
+            || (echo "a test appears to make a real HTTP call" && exit 1)
+
+      - name: Read layer has not regressed into an N+1
+        # The benchmark prints query and ORM-row counts for the old and new
+        # read paths. A refactor that reintroduces a lazy collection load shows
+        # up here rather than as a slow page six months later.
+        run: python scripts/bench_queries.py --runs 10 --companies 6
+
+      - name: Migrations apply and roll back cleanly
+        # A migration that cannot be reversed is a migration you cannot deploy
+        # with confidence, so the round-trip is part of the contract.
+        env:
+          DATABASE_URL: sqlite:///./ci.db
+        run: |
+          python -m alembic upgrade head
+          python -m alembic downgrade base
+          python -m alembic upgrade head
+
+  frontend:
+    name: Frontend typecheck and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        # ci, not install: fails loudly if package-lock.json has drifted from
+        # package.json rather than silently resolving something new.
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+  docker:
+    name: Docker images build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The compose stack is the documented way to run this project, so a
+      # broken Dockerfile is a broken quick-start. Build only - starting the
+      # stack would need a Postgres service for no extra signal.
+      - name: Build backend image
+        run: docker build -t strategysphere-backend ./backend
+
+      - name: Build frontend image
+        run: docker build -t strategysphere-frontend ./frontend

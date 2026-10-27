@@ -1,0 +1,207 @@
+@import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Paper theme tokens. Values here, names in tailwind.config.js. Light only. */
+:root {
+  color-scheme: light;
+
+  /* Channels are the source of truth so Tailwind's /opacity modifiers work;
+     the colour form below is what SVG fill/stroke attributes consume. */
+  --background-rgb: 246 245 241;
+  --foreground-rgb: 21 23 26;
+  --card-rgb: 255 255 255;
+  --surface-2-rgb: 239 237 230;
+  --border-rgb: 226 223 214;
+  --border-strong-rgb: 201 197 185;
+  --muted-foreground-rgb: 91 95 102;
+  --text-subtle-rgb: 140 144 151;
+  --primary-rgb: 29 63 216;
+  --primary-foreground-rgb: 255 255 255;
+  --success-rgb: 15 138 95;
+  --warning-rgb: 183 121 31;
+  --danger-rgb: 194 54 47;
+  --info-rgb: 29 63 216;
+  --chart-1-rgb: 29 63 216;
+  --chart-2-rgb: 140 144 151;
+  --chart-3-rgb: 201 197 185;
+
+  --background: rgb(var(--background-rgb));
+  --foreground: rgb(var(--foreground-rgb));
+  --card: rgb(var(--card-rgb));
+  --surface-2: rgb(var(--surface-2-rgb));
+  --border: rgb(var(--border-rgb));
+  --border-strong: rgb(var(--border-strong-rgb));
+  --muted-foreground: rgb(var(--muted-foreground-rgb));
+  --text-subtle: rgb(var(--text-subtle-rgb));
+  --primary: rgb(var(--primary-rgb));
+  --primary-foreground: rgb(var(--primary-foreground-rgb));
+  --success: rgb(var(--success-rgb));
+  --warning: rgb(var(--warning-rgb));
+  --danger: rgb(var(--danger-rgb));
+  --info: rgb(var(--info-rgb));
+  --chart-1: rgb(var(--chart-1-rgb));
+  --chart-2: rgb(var(--chart-2-rgb));
+  --chart-3: rgb(var(--chart-3-rgb));
+
+  --brand-tint: rgb(var(--primary-rgb) / 0.08);
+}
+
+@layer base {
+  body {
+    @apply bg-background font-sans text-base text-foreground antialiased;
+  }
+
+  /* Every figure is meant to be compared down a column; proportional digits
+     make that comparison jitter. */
+  .font-mono,
+  code,
+  kbd,
+  samp {
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::selection {
+    @apply bg-brand-tint text-foreground;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-primary ring-offset-2 ring-offset-background;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* --- surfaces -------------------------------------------------------- */
+  /* Paper elevates with hairlines, not shadows. Cards are for things that are
+     genuinely separate objects; grouping is whitespace first. */
+  .panel {
+    @apply relative rounded-lg border border-border bg-card;
+  }
+  .panel-2 {
+    @apply rounded border border-border bg-surface-2;
+  }
+  .panel-inset {
+    @apply rounded border border-border bg-surface-2;
+  }
+  .card-interactive {
+    @apply transition-colors duration-150 hover:border-strong hover:bg-surface-2;
+  }
+
+  /* --- typography ------------------------------------------------------ */
+  /* Instrument Serif ships 400 and italic only. Never fake-bold it. */
+  .display {
+    @apply font-display font-normal leading-none tracking-display;
+  }
+  .display em {
+    font-style: italic;
+  }
+  .label {
+    @apply mb-1 block text-2xs font-medium uppercase tracking-label text-muted;
+  }
+  .section-title {
+    @apply text-base font-semibold text-foreground;
+  }
+  .eyebrow {
+    @apply text-2xs font-medium uppercase tracking-label text-muted;
+  }
+  /* The Paper signature: a mono section number, 01 / 02 / 03. */
+  .section-no {
+    @apply font-mono text-xs tracking-label text-muted;
+  }
+  .rule {
+    @apply w-full border-t border-border;
+  }
+  .prose-muted {
+    @apply text-sm leading-relaxed text-muted;
+  }
+  .stat-value {
+    @apply font-mono text-4xl font-medium tracking-display text-foreground;
+  }
+
+  /* --- controls -------------------------------------------------------- */
+  .btn {
+    @apply inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded px-3
+           text-sm font-medium transition-colors duration-150
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  /* One primary action per screen. Everything else is .btn-ghost. */
+  .btn-primary {
+    @apply btn bg-primary text-primary-fg hover:brightness-110 active:brightness-95;
+  }
+  .btn-ghost {
+    @apply btn border border-strong bg-transparent text-foreground
+           hover:bg-surface-2;
+  }
+  .btn-danger {
+    @apply btn border border-transparent text-muted
+           hover:border-danger hover:text-danger;
+  }
+  .field {
+    @apply w-full rounded border border-strong bg-card px-3 py-2 text-sm text-foreground
+           transition-colors duration-150 placeholder:text-subtle
+           focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary;
+  }
+
+  /* --- badges ---------------------------------------------------------- */
+  .chip {
+    @apply inline-flex items-center gap-1 rounded border px-1.5 py-0.5
+           text-2xs font-medium uppercase tracking-label;
+  }
+  .chip-positive {
+    @apply border-success/30 bg-success/10 text-success;
+  }
+  .chip-caution {
+    @apply border-warning/30 bg-warning/10 text-warning;
+  }
+  .chip-negative {
+    @apply border-danger/30 bg-danger/10 text-danger;
+  }
+  .chip-neutral {
+    @apply border-border bg-surface-2 text-muted;
+  }
+  /* Computed-vs-analyst provenance. Quiet, because it appears on every factor. */
+  .chip-computed {
+    @apply border-border bg-card text-foreground;
+  }
+  .chip-accent {
+    @apply border-primary/30 bg-brand-tint text-primary;
+  }
+
+  /* --- data tables ----------------------------------------------------- */
+  .data-table {
+    @apply w-full text-left text-sm;
+  }
+  .data-table thead th {
+    @apply whitespace-nowrap border-b border-border bg-surface-2 px-3 py-2
+           font-mono text-xs font-normal uppercase tracking-label text-muted;
+  }
+  .data-table tbody tr {
+    @apply border-b border-border transition-colors duration-150 last:border-0 hover:bg-surface-2;
+  }
+  .data-table tbody td {
+    @apply px-3 py-2 align-top;
+  }
+  .num {
+    @apply font-mono tabular-nums;
+  }
+
+  /* --- meters ---------------------------------------------------------- */
+  .meter {
+    @apply h-1.5 w-full overflow-hidden rounded-full bg-surface-2;
+  }
+  .meter-fill {
+    @apply h-full rounded-full transition-[width] duration-300 ease-out-quint;
+  }
+}
